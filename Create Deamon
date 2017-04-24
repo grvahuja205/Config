@@ -1,0 +1,138 @@
+import win32service
+import win32serviceutil
+import win32api
+import win32con
+import win32event
+import win32evtlogutil
+import os
+import servicemanager
+import logging
+from logging.handlers import TimedRotatingFileHandler
+import time
+import shutil
+from datetime import date
+#import stompest modules
+from stompest.config import StompConfig
+from stompest.protocol import StompSpec, StompFrame, StompSession
+from stompest.sync import Stomp
+from stompest.error import StompConnectionError, StompConnectTimeout
+
+client = None
+#last_update_date = date.today()
+CONFIG = StompConfig(uri='failover:(tcp://155.16.55.212:61613,tcp://155.16.55.213:61613)?startupMaxReconnectAttempts=2,initialReconnectDelay=5000,randomize=false')
+QUEUE_V2 = '/queue/OPASv2'
+QUEUE_V3 = '/queue/OPASv3ProdAlarmExport'
+QUEUE_IPSOFT = '/queue/IPSoftProd'
+QUEUE_SNOW = '/queue/DSOMProd'
+PATHTOTKT = 'c:/MLM-to-ActiveMQ/MLMtickets/'
+LOG_FILENAME = __file__.split('.')[0] + '_LOG.out'
+logging.basicConfig(filename = LOG_FILENAME, filemode = 'w', level = logging.ERROR, format='%(asctime)s %(message)s')
+#logger = logging.getLogger()
+#logger.setLevel(logging.DEBUG)
+#handler = TimedRotatingFileHandler(LOG_FILENAME, when = 's', interval = 10, backupCount = 7)
+#handler.setFormatter(logging.formatter('%(asctime)s %(message)s'))
+#logger.addHandler(handler)
+logging.error('starting process...')
+
+"""
+def RotateLogs():
+  global last_update_date
+  global LOG_FILENAME
+  logger = logging.getLogger('DaemonLogger')
+  logger.propagate = False
+  shutil.copy(LOG_FILENAME, LOG_FILENAME + '.' + str(date.today()))
+  f = open(LOG_FILENAME, 'w').write('')
+  f.close()
+  logger.propagate = True
+"""
+
+def CreateConnection():
+  global client
+  client = Stomp(CONFIG)
+  try:
+    client.connect({'login':'admin', 'passcode':'2caee40fe_d182d0d514-df634c40274'})
+  except Exception as e:
+    logging.error('unable to connect to ActiveMQ....' + str(e))
+    return 1
+  return 0
+
+class pydaemon(win32serviceutil.ServiceFramework):
+   
+  _svc_name_ = "MLM2AMQPY"
+  _svc_display_name_ = "MLM2AMQPY"
+  _svc_description_ = "Sends MLM events to ActiveMQ"
+
+  def __init__(self, args):
+    win32serviceutil.ServiceFramework.__init__(self, args)
+    self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)           
+
+  def SvcStop(self):
+    self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+    win32event.SetEvent(self.hWaitStop)                    
+         
+  def SvcDoRun(self):      
+    servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,servicemanager.PYS_SERVICE_STARTED,(self._svc_name_, '')) 
+      
+    self.timeout = 3000
+    
+    global client
+    #global logger
+    #global last_update_date
+    
+    while True:
+      #check whether to rotate logs or not
+      #if((date.today() - last_update_date).days >= 0):
+       # RotateLogs()
+      # Wait for service stop signal, if it timeouts, loop again
+      rc = win32event.WaitForSingleObject(self.hWaitStop, self.timeout)
+      # Check to see if self.hWaitStop happened
+      if rc == win32event.WAIT_OBJECT_0:
+        # Stop signal encountered
+        servicemanager.LogInfoMsg("pydaemon - STOPPED")
+        if(con == 0):
+          client.disconnect()
+        break
+      else:
+        servicemanager.LogInfoMsg("pydaemon - is alive and well")  
+        #while(con > 0):
+          #time.sleep(1)
+        con = CreateConnection()
+        if(con > 0):
+          print 'could not connect.....trying to reconnect in next cycle\n'
+          continue
+        try:
+          for tkt in os.listdir(PATHTOTKT):
+            try:
+              msg = open(PATHTOTKT + tkt, 'r').read()
+            except Exception as ex:
+              logging.error('cannot read file ' + str(ex))
+              continue  
+            if(tkt.endswith('.v2tkt')):
+              print 'send to v2....'
+              client.send(QUEUE_V2, msg)
+            elif(tkt.endswith('.v3tkt')):
+              print 'send to v3....'
+              client.send(QUEUE_V3, msg)
+            elif(tkt.endswith('.ipsofttkt')):
+              print 'send to ipsoft....'
+              client.send(QUEUE_IPSOFT, msg)
+            elif(tkt.endswith('.dsomtkt')):
+              print 'send to service now....'
+              client.send(QUEUE_SNOW, msg)
+            else:
+              print 'unknown ticket....'
+            os.remove(PATHTOTKT + tkt)  
+          #client.send(QUEUE_V2, 'this is test')
+          client.disconnect()
+        except Exception as e:
+          logging.error('error ' + str(e))
+          #con = CreateConnection()
+        logging.error('Daemon running.....')
+        time.sleep(60)
+      
+def ctrlHandler(ctrlType):
+  return True
+                  
+if __name__ == '__main__':   
+  win32api.SetConsoleCtrlHandler(ctrlHandler, True)   
+  win32serviceutil.HandleCommandLine(pydaemon)
