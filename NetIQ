@@ -1,0 +1,202 @@
+import pypyodbc
+import json
+import xmltodict
+#from xmljson import parker
+from stompest.config import StompConfig
+from stompest.sync import Stomp
+
+def getNetIQData():
+    try:
+        con = pypyodbc.connect(driver='{SQL Server}',server='PSCNTNIQSQLV08',port='1433',database='QDB_SQLV07',uid='',pwd='')
+        #print 'connected'
+        #print con
+
+        query_file = 'query - Copy.txt'
+        query_obj = open(query_file, 'r')
+        command = query_obj.read()
+
+        #data_file = 'data.txt'
+        #data_obj = open(data_file, 'w')
+        results = []
+
+        cur = con.cursor()
+        result = cur.execute(command)
+
+        results = list(result)
+        """or u in results:
+            print u"""
+
+        print len(results)
+        
+        i= 0
+        while(results != None and len(results) != 1 and len(results) != 2):
+            f = results[i]
+            data ={}
+            data['server_name'] = f[3]
+            data['tool'] = 'NetIQ'
+            data['source'] = f[1]
+            param = []
+            #print 'inside outer while'
+
+            #print data['server_name']
+
+            x = 1
+
+            while x == 1:
+                #print 'inner while'
+                first_row = results[i]
+                second_row = results[i+1]
+                third_row = results[i+2]
+                param_detail = {}
+
+                if(first_row[3] == second_row[3]):
+                    #print 'inside inner if'
+                    if(second_row[3] == third_row[3]):
+                        print first_row[6]
+                        print second_row[6]
+                        #print 'inside inner inner if'
+                        if(first_row[17] != None):
+                            param_json_1 = xmltodict.parse(first_row[17])
+                        if(first_row[19] != None):
+                            param_sch_1 = xmltodict.parse(first_row[19])
+                        if(second_row[17] != None):
+                            param_json_2 = xmltodict.parse(second_row[17])
+                        if(second_row[19] != None):
+                            param_sch_2 = xmltodict.parse(second_row[19])
+                        if(first_row[6] == None):
+                            param.append({'job_name':first_row[4],'threshold':param_json_1,'schedule':param_sch_1,'job_id':first_row[7],'parent_job_id':first_row[6]})
+                        if(second_row[6] == None):
+                            param.append({'job_name':second_row[4],'threshold':param_json_2,'schedule':param_sch_2,'job_id':second_row[7],'parent_job_id':second_row[6]})
+                        results.remove(first_row)
+                        results.remove(second_row)
+                        if(len(results)==2):
+                            #print 'last row 2'
+                            first_row == results[0]
+                            second_row == results[1]
+                            if(first_row[17] != None):
+                                param_json_1 = xmltodict.parse(first_row[17])
+                            if(first_row[19] != None):
+                                param_sch_1 = xmltodict.parse(first_row[19])
+                            if(second_row[17] != None):
+                                param_json_2 = xmltodict.parse(second_row[17])
+                            if(second_row[19] != None):
+                                param_sch_2 = xmltodict.parse(second_row[19])
+                            if(first_row[6] == None):
+                                param.append({'job_name':first_row[4],'threshold':param_json_1,'schedule':param_sch_1,'job_id':first_row[7],'parent_job_id':first_row[6]})
+                            if(second_row[6] == None):
+                                param.append({'job_name':second_row[4],'threshold':param_json_2,'schedule':param_sch_2,'job_id':second_row[7],'parent_job_id':second_row[6]})
+                            #print first_row[4]
+                            #print second_row[4]
+                            results.remove(first_row)
+                            results.remove(second_row)
+                            x = 0
+                        if(len(results)==1):
+                            #print 'last row'
+                            first_row == results[0]
+                            if(first_row[17] != None):
+                                param_json_1 = xmltodict.parse(first_row[17])
+                            if(first_row[19] != None):
+                                param_sch_1 = xmltodict.parse(first_row[19])
+                            if(first_row[6] == None):
+                                param.append({'job_name':first_row[4],'threshold':param_json_1,'schedule':param_sch_1,'job_id':first_row[7],'parent_job_id':first_row[6]})
+                            results.remove(first_row)
+                            x = 0
+                    else:
+                        #print 'inside inner inner else'
+                        if(first_row[17] != None):
+                            param_json_1 = xmltodict.parse(first_row[17])
+                        if(first_row[19] != None):
+                            param_sch_1 = xmltodict.parse(first_row[19])
+                        if(second_row[17] != None):
+                            param_json_2 = xmltodict.parse(second_row[17])
+                        if(second_row[19] != None):
+                            param_sch_2 = xmltodict.parse(second_row[19])
+                        if(first_row[6] == None):
+                            param.append({'job_name':first_row[4],'threshold':param_json_1,'schedule':param_sch_1,'job_id':first_row[7],'parent_job_id':first_row[6]})
+                        if(second_row[6] == None):
+                            param.append({'job_name':second_row[4],'threshold':param_json_2,'schedule':param_sch_2,'job_id':second_row[7],'parent_job_id':second_row[6]})
+                        results.remove(first_row)
+                        results.remove(second_row)
+                        if(len(results)==2):
+                            #print 'last row'
+                            first_row == results[0]
+                            second_row == results[1]
+                            if(first_row[17] != None):
+                                param_json_1 = xmltodict.parse(first_row[17])
+                            if(first_row[19] != None):
+                                param_sch_1 = xmltodict.parse(first_row[19])
+                            if(second_row[17] != None):
+                                param_json_2 = xmltodict.parse(second_row[17])
+                            if(second_row[19] != None):
+                                param_sch_2 = xmltodict.parse(second_row[19])
+                            if(first_row[6] == None):
+                                param.append({'job_name':first_row[4],'threshold':param_json_1,'schedule':param_sch_1,'job_id':first_row[7],'parent_job_id':first_row[6]})
+                            if(second_row[6] == None):
+                                param.append({'job_name':second_row[4],'threshold':param_json_2,'schedule':param_sch_2,'job_id':second_row[7],'parent_job_id':second_row[6]})
+                            results.remove(first_row)
+                            results.remove(second_row)
+                            x = 0
+                        if(len(results)==1):
+                            first_row == results[0]
+                            if(first_row[17] != None):
+                                param_json_1 = xmltodict.parse(first_row[17])
+                            if(first_row[19] != None):
+                                param_sch_1 = xmltodict.parse(first_row[19])
+                            if(first_row[6] == None):
+                                param.append({'job_name':first_row[4],'threshold':param_json_1,'schedule':param_sch_1,'job_id':first_row[7],'parent_job_id':first_row[6]})
+                            results.remove(first_row)
+                            x = 0
+                        x = 0
+
+                else:
+                    #print 'inside inner else inner if'
+                    if(first_row[17] != None):
+                        param_json_1 = xmltodict.parse(first_row[17])
+                    if(first_row[19] != None):
+                        param_sch_1 = xmltodict.parse(first_row[19])
+                    if(first_row[6] == None):
+                        param.append({'job_name':first_row[4],'threshold':param_json_1,'schedule':param_sch_1,'job_id':first_row[7],'parent_job_id':first_row[6]})
+                    results.remove(first_row)
+                    x = 0
+
+            data['config'] = param
+
+            #print data['server_name']
+
+            #data_obj.write(json.dumps(data))
+
+        
+            print data['server_name']
+            raw_input("press Enter To Continue...")
+                        
+                        
+            """for k, v in data.iteritems():
+                if(k == 'server_name'):
+                    print v
+                raw_input("Press Enter To Continue...")"""
+            
+        
+        #print results
+
+        """for line in results:
+            #print line[3]+" "+line[4] 
+            if(line[17]==None):
+                continue
+            else:
+                print json.dumps(xmltodict.parse(line[17]))
+            #raw_input("enter to continue")
+            #print line
+
+        #print data['server_name']"""
+    
+
+    except Exception,e1:
+        print(str(e1))
+
+
+
+
+
+
+if __name__ == '__main__':
+    getNetIQData()
