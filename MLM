@@ -1,0 +1,263 @@
+import os
+import re
+import csv
+import subprocess
+import cx_Oracle
+import json
+import collections
+#import stomp
+import stompest
+from stompest.config import StompConfig
+from stompest.sync import Stomp
+
+def getMLMConfigData():
+
+    query_file = "sql_query.txt"
+    query_obj = open(query_file)
+
+    json_file = "config_json.txt"
+    json_file_obj = open(json_file,'w')
+
+    #f = open('config.csv','rb')
+    #read = csv.reader(f)
+    #read = f.readlines()
+
+    #c = stomp.Connection(['165.136.136.12',61613'])
+    CONFIG = StompConfig('tcp://<IP>:61613',login='admin',passcode='password', version='1.1',check=False)
+    #c.start()
+    c= Stomp(CONFIG)
+    c.connect(host='findhostbroker')
+
+    #f = open('config.csv','wb')
+    #write = csv.writer(f,delimiter=',')
+
+    query = query_obj.read()
+    list_data = []
+    esmlist = []
+    row_iterator=[]
+    results = []
+    #read =[]
+    #print query
+
+    try:
+        con = cx_Oracle.connect('username/password@databaseinstance')
+        
+
+        if(con != None):
+            print 'connected'
+
+        else:
+            print 'cannot connect'
+
+    except Exception,e:
+        print (str(e))
+
+    try:
+        cur = con.cursor()
+        cur.arraysize = 10000
+        read = cur.execute(query)
+
+        for line in read:
+            #print line
+            #raw_input("Press Enter to continue...")
+            results.append(line)
+
+        #print 'sql query executed'
+
+        #for row in results:
+        #    row_iterator.append(list(row))
+
+        #row_iterator1 = collections.deque(row_iterator)
+
+        #for x in row_iterator:
+            #print x
+
+        print "printing pop"
+
+        i = 0
+
+        while (results != None and len(results)!=1):
+            data = {}
+            param_list =[]
+            param = []
+            data['tool'] ='MLM'
+            data['source'] ='MLM1'
+            f = results[i]
+            data['esm_name'] =f[2]
+            data['account'] = f[0]
+            data['ip'] = f[8]
+            json_list = []
+            data['element_profile'] = f[10]
+            app = []
+            #app_raw = []
+            #print results[0]
+    
+            x=1
+            while x == 1:
+                #print 'Inside While'
+                #print 'before first_row'
+                first_row = results[i]
+                #print 'before second_row'
+                second_row = results[i+1]
+                #print 'before third_row'
+                third_row = results[i+2]
+                #print first_row[2]+' '+second_row[2]
+                #print first_row
+                #print second_row
+                app_raw = []
+                app_raw = first_row[11].split("/")
+                #print app_raw
+                if(app_raw[0] not in app):
+                    app.append(app_raw[0])
+                if(first_row[2] == second_row[2]):
+                    if(second_row[2] == third_row[2]):
+                        #print 'inside if'
+                        param_list.append({'Parameter_name':first_row[1],'Polling_interval':first_row[3],'Sev3':first_row[4],'Sev4':first_row[5],'Sev3_Threshold':first_row[7],'Sev4_Threshold':first_row[6],'instance_name':first_row[9]})
+                        param_list.append({'Parameter_name':second_row[1],'Polling_interval':second_row[3],'Sev3':second_row[4],'Sev4':second_row[5],'Sev3_Threshold':second_row[7],'Sev4_Threshold':second_row[6],'instance_name':second_row[9]})
+                        results.remove(first_row)
+                        results.remove(second_row)
+                        if(len(results)==1):
+                            first_row == results[0]
+                            param_list.append({'Parameter_name':first_row[1],'Polling_interval':first_row[3],'Sev3':first_row[4],'Sev4':first_row[5],'Sev3_Threshold':first_row[7],'Sev4_Threshold':first_row[6],'instance_name':first_row[9]})
+                            #results.remove(first_row)
+                            x =0
+                    else:
+                        param_list.append({'Parameter_name':first_row[1],'Polling_interval':first_row[3],'Sev3':first_row[4],'Sev4':first_row[5],'Sev3_Threshold':first_row[7],'Sev4_Threshold':first_row[6],'instance_name':first_row[9]})
+                        param_list.append({'Parameter_name':second_row[1],'Polling_interval':second_row[3],'Sev3':second_row[4],'Sev4':second_row[5],'Sev3_Threshold':second_row[7],'Sev4_Threshold':second_row[6],'instance_name':second_row[9]})
+                        results.remove(first_row)
+                        results.remove(second_row)
+                        if(len(results)==1):
+                            first_row == results[0]
+                            param_list.append({'Parameter_name':first_row[1],'Polling_interval':first_row[3],'Sev3':first_row[4],'Sev4':first_row[5],'Sev3_Threshold':first_row[7],'Sev4_Threshold':first_row[6],'instance_name':first_row[9]})
+                            #results.remove(first_row)
+                            x =0
+                        x = 0
+                    #i = i+1
+                else:
+                    if(first_row[2] != second_row[2] or second_row == None):
+                        param_list.append({'Parameter_name':first_row[1],'Polling_interval':first_row[3],'Sev3':first_row[4],'Sev4':first_row[5],'Sev3_Threshold':first_row[7],'Sev4_Threshold':first_row[6],'instance_name':first_row[9]})
+                        #i =i+1
+                        results.remove(first_row)
+                        if(len(results)==1):
+                            first_row == results[0]
+                            param_list.append({'Parameter_name':first_row[1],'Polling_interval':first_row[3],'Sev3':first_row[4],'Sev4':first_row[5],'Sev3_Threshold':first_row[7],'Sev4_Threshold':first_row[6],'instance_name':first_row[9]})
+                            #results.remove(first_row)
+                            x =0
+                        x=0
+                    else:
+                        #i= i+1
+                        x = 0
+
+            #data['config'] = param_list
+
+            param_list_1 = sorted(param_list, key=lambda z: z['instance_name'])
+
+            it = iter(param_list_1)
+            #print it.next()
+            
+            #print data['esm_name']
+            #for u in param_list_1:
+                #print u
+
+            #print '\n'
+
+            
+            
+            p = 0
+            param_details = {}
+            instance_list = {}
+            param_thresh = []
+            param_thresh_1 =[]
+            for q in range(len(param_list_1)):
+                #print 'inside loop'
+                if(q < len(param_list_1)-1):
+                    first_1 = param_list_1[q]
+                    second_1 = param_list_1[q+1]
+
+                    if(first_1['instance_name'] == second_1['instance_name']):
+                        #print q
+                        param_thresh.append({'parameter_name':first_1['Parameter_name'],'sev3':[first_1['Sev3_Threshold'],first_1['Polling_interval']],'sev4':[first_1['Sev4_Threshold'],first_1['Polling_interval']]})
+                        #print first_1
+                        #print second_1
+                        #print 'inside inner if'
+                        #print '\n'
+                        #print param_thresh
+                        #print '\n'
+                    else:
+                        #print q
+                        param_thresh.append({'parameter_name':first_1['Parameter_name'],'sev3':[first_1['Sev3_Threshold'],first_1['Polling_interval']],'sev4':[first_1['Sev4_Threshold'],first_1['Polling_interval']]})
+                        #print first_1
+                        #print second_1
+                        #print 'inside inner else'
+                        #print param_thresh
+                        #print '\n'
+                        #print '\n'
+                        #param_thres_1 = param_thresh[:]
+                        ins = first_1['instance_name']
+                        param.append({'instance_name':ins,'param_thresh':param_thresh})
+                        #print param
+                        #del param_thresh[:]
+                        param_thresh =[]
+                        #print '\n'
+
+                else:
+                    #print q
+                    first_1 = param_list_1[q]
+                    #print 'ourside else'
+                    #print first_1
+                    param_thresh.append({'parameter_name':first_1['Parameter_name'],'sev3':[first_1['Sev3_Threshold'],first_1['Polling_interval']],'sev4':[first_1['Sev4_Threshold'],first_1['Polling_interval']]})
+                    #print param_thresh
+                    #print '\n'
+                    #param_thres_1 = param_thresh[:]
+                    ins = first_1['instance_name']
+                    param.append({'instance_name':ins,'param_thresh':param_thresh})
+                    #print param
+                    #print '\n'
+                    #param_details ={}
+                    #del param_thresh[:]
+                    param_thresh =[]
+                        
+                        
+                    
+
+
+            """for u in param:
+                print u
+            print '\n'"""
+                       
+            data['app'] = app
+            data['config'] = param
+            #c.send('/queue/findhost', json.dumps(data))
+            c.send('/queue/MLM_Test_3', json.dumps(data))
+            #c.send('/queue/MLM_Test', json.dumps(data))
+                #print 'List Added'
+
+            list_data.append(data)
+
+            """for k, v in data.iteritems():
+                print k, v
+                raw_input("Press Enter To Continue...")"""
+                
+                
+
+            #raw_input("Press Enter to continue...")
+
+    except Exception,e1:
+        print(str(e1))
+
+
+    #json.dump(list_data,json_file_obj)
+
+    
+    c.disconnect()
+    
+    query_obj.close()
+    json_file_obj.close()
+    con.close()
+    raw_input("Press Enter to continue...")
+
+
+
+
+if __name__ == '__main__':
+    getMLMConfigData()
